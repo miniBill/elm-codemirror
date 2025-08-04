@@ -1,34 +1,9 @@
-import {
-    autocompletion,
-    closeBrackets,
-    closeBracketsKeymap,
-    completionKeymap,
-} from "@codemirror/autocomplete";
-import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { markdown } from "@codemirror/lang-markdown";
-import {
-    bracketMatching,
-    defaultHighlightStyle,
-    foldKeymap,
-    indentOnInput,
-    syntaxHighlighting,
-} from "@codemirror/language";
-import { lintKeymap } from "@codemirror/lint";
-import { highlightSelectionMatches, searchKeymap } from "@codemirror/search";
 import { EditorState } from "@codemirror/state";
-import {
-    crosshairCursor,
-    drawSelection,
-    dropCursor,
-    highlightActiveLine,
-    highlightActiveLineGutter,
-    highlightSpecialChars,
-    keymap,
-    rectangularSelection,
-    ViewUpdate,
-} from "@codemirror/view";
+import { ViewUpdate } from "@codemirror/view";
 import { EditorView } from "@codemirror/view";
 import { oneDark } from "@codemirror/theme-one-dark";
+import { basicSetup } from "codemirror";
 
 class CodeMirror extends HTMLElement {
     view: EditorView | null;
@@ -55,37 +30,7 @@ class CodeMirror extends HTMLElement {
             }
         });
 
-        return [
-            plugin,
-            // lineNumbers(),
-            highlightActiveLineGutter(),
-            highlightSpecialChars(),
-            history(),
-            // foldGutter(),
-            drawSelection(),
-            dropCursor(),
-            EditorState.allowMultipleSelections.of(true),
-            indentOnInput(),
-            syntaxHighlighting(defaultHighlightStyle),
-            bracketMatching(),
-            closeBrackets(),
-            autocompletion(),
-            rectangularSelection(),
-            crosshairCursor(),
-            highlightActiveLine(),
-            highlightSelectionMatches(),
-            keymap.of([
-                ...closeBracketsKeymap,
-                ...defaultKeymap,
-                ...searchKeymap,
-                ...historyKeymap,
-                ...foldKeymap,
-                ...completionKeymap,
-                ...lintKeymap,
-            ]),
-            markdown(),
-            oneDark,
-        ];
+        return [plugin, basicSetup, markdown(), oneDark];
     }
 
     static get observedAttributes() {
