@@ -8,6 +8,8 @@ import Json.Decode
 import Markdown.Block exposing (Block)
 import Markdown.Parser
 import Markdown.Renderer
+import Regex exposing (Regex)
+import String.Extra
 
 
 type alias Model =
@@ -50,7 +52,7 @@ view doc =
         , let
             blocks : List Block
             blocks =
-                case Markdown.Parser.parse doc of
+                case Markdown.Parser.parse (toMarkdown doc) of
                     Ok parsed ->
                         parsed
 
@@ -67,6 +69,26 @@ view doc =
                 , style "flex" "1"
                 ]
         ]
+
+
+linkRegex : Regex
+linkRegex =
+    Regex.fromString "\\[\\[[^\\]]+\\]\\]"
+        |> Maybe.withDefault Regex.never
+
+
+toMarkdown : String -> String
+toMarkdown input =
+    input
+        |> Regex.replace linkRegex
+            (\match ->
+                let
+                    target : String
+                    target =
+                        String.slice 2 -2 match.match
+                in
+                "[" ++ target ++ "](/" ++ String.Extra.dasherize target ++ ")"
+            )
 
 
 update : Msg -> Model -> Model
