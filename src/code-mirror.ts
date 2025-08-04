@@ -109,9 +109,12 @@ class CodeMirror extends HTMLElement {
             return;
         }
 
-        let editorState = this.view.state.toJSON();
-        editorState.doc = doc;
-        this.view.setState(EditorState.fromJSON(editorState));
+        let editorState = EditorState.create({
+            doc: doc,
+            extensions: this.extensions(),
+            selection: this.view.state.selection,
+        });
+        this.view.setState(editorState);
     }
 
     connectedCallback() {
