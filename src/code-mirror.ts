@@ -19,12 +19,11 @@ class CodeMirror extends HTMLElement {
             if (update.docChanged) {
                 let doc = update.state.doc.toString();
 
-                mirror.setAttribute("doc", doc);
+                mirror.setAttribute("value", doc);
 
-                let event = new CustomEvent("doc-changed", {
+                let event = new Event("input", {
                     bubbles: true,
                     cancelable: true,
-                    detail: doc,
                 });
                 mirror.dispatchEvent(event);
             }
@@ -34,7 +33,7 @@ class CodeMirror extends HTMLElement {
     }
 
     static get observedAttributes() {
-        return ["doc"];
+        return ["value"];
     }
 
     attributeChangedCallback(
@@ -43,7 +42,7 @@ class CodeMirror extends HTMLElement {
         newValue: string
     ) {
         switch (name) {
-            case "doc":
+            case "value":
                 this.setState(newValue ?? "");
                 break;
         }
@@ -65,7 +64,7 @@ class CodeMirror extends HTMLElement {
     connectedCallback() {
         const shadow = this.attachShadow({ mode: "open" });
         const state = EditorState.create({
-            doc: this.getAttribute("doc") ?? "",
+            doc: this.getAttribute("value") ?? "",
             extensions: this.extensions(),
         });
         this.view = new EditorView({
