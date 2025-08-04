@@ -6,7 +6,7 @@ import terser from "@rollup/plugin-terser";
 export default {
     input: "src/code-mirror.ts",
     output: {
-        dir: "dist",
+        dir: "build",
         format: "es",
         sourcemap: true,
         plugins: [terser()],
