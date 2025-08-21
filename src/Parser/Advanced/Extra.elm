@@ -1,4 +1,4 @@
-module Parser.Advanced.Extra exposing (Config, errorToHtml, errorToMarkdown, errorToString, renderError)
+module Parser.Advanced.Extra exposing (DeadEnd, Extract, Output, errorToHtml, errorToMarkdown, errorToString, parser, parserAdvanced, renderError)
 
 import Ansi.Color
 import Html exposing (Html)
@@ -7,36 +7,79 @@ import Json.Encode
 import List.Extra
 import Markdown.Block as Block exposing (Inline)
 import Parser exposing (Problem(..))
-import Parser.Advanced exposing (DeadEnd)
 
 
-type alias Config a =
-    { text : String -> a
-    , colorCaret : a -> a
-    , newline : a
-    , colorContext : a -> a
+type alias DeadEnd inner problem =
+    { inner | row : Int, col : Int, problem : problem }
+
+
+type alias Output out =
+    { text : String -> out
+    , colorCaret : out -> out
+    , newline : out
+    , colorContext : out -> out
     }
+
+
+type alias Extract inner problem =
+    { contextStack :
+        DeadEnd inner problem
+        -> List { row : Int, col : Int, context : String }
+    , problemToString : problem -> Expected
+    }
+
+
+type Expected
+    = Expected String
+    | Other String
 
 
 type Line a
     = Line (List a)
 
 
-errorToString : String -> List (DeadEnd String Problem) -> String
-errorToString src deadEnds =
+parser : Extract {} Problem
+parser =
+    { contextStack = \_ -> []
+    , problemToString = problemToExpected
+    }
+
+
+parserAdvanced :
+    Extract
+        { contextStack : List { row : Int, col : Int, context : String }
+        }
+        Problem
+parserAdvanced =
+    { contextStack = .contextStack
+    , problemToString = problemToExpected
+    }
+
+
+errorToString :
+    Extract inner problem
+    -> String
+    -> List (DeadEnd inner problem)
+    -> String
+errorToString extract src deadEnds =
     renderError
         { text = identity
         , colorContext = Ansi.Color.fontColor Ansi.Color.cyan
         , colorCaret = Ansi.Color.fontColor Ansi.Color.red
         , newline = "\n"
         }
+        extract
         src
         deadEnds
         |> String.concat
 
 
-errorToHtml : String -> List (DeadEnd String Problem) -> List (Html msg)
-errorToHtml src deadEnds =
+errorToHtml :
+    Extract inner problem
+    -> String
+    -> List (DeadEnd inner problem)
+    -> List (Html msg)
+errorToHtml extract src deadEnds =
     let
         color : String -> Html msg -> Html msg
         color value child =
@@ -48,12 +91,17 @@ errorToHtml src deadEnds =
         , colorCaret = color "red"
         , newline = Html.br [] []
         }
+        extract
         src
         deadEnds
 
 
-errorToMarkdown : String -> List (DeadEnd String Problem) -> List Inline
-errorToMarkdown src deadEnds =
+errorToMarkdown :
+    Extract inner problem
+    -> String
+    -> List (DeadEnd inner problem)
+    -> List Inline
+errorToMarkdown extract src deadEnds =
     let
         color : String -> Inline -> Inline
         color value child =
@@ -69,12 +117,18 @@ errorToMarkdown src deadEnds =
         , colorCaret = color "red"
         , newline = Block.HardLineBreak
         }
+        extract
         src
         deadEnds
 
 
-renderError : Config a -> String -> List (DeadEnd String Problem) -> List a
-renderError cfg src deadEnds =
+renderError :
+    Output out
+    -> Extract inner problem
+    -> String
+    -> List (DeadEnd inner problem)
+    -> List out
+renderError output extract src deadEnds =
     let
         lines : List ( Int, String )
         lines =
@@ -85,56 +139,57 @@ renderError cfg src deadEnds =
     deadEnds
         |> List.Extra.gatherEqualsBy
             (\{ row, col } -> ( row, col ))
-        |> List.concatMap (\line -> deadEndToString cfg lines line)
-        |> List.intersperse (Line [ cfg.newline ])
+        |> List.concatMap (\line -> deadEndToString output extract lines line)
+        |> List.intersperse (Line [ output.newline ])
         |> List.concatMap (\(Line l) -> l)
 
 
-deadEndToString : Config a -> List ( Int, String ) -> ( DeadEnd String Problem, List (DeadEnd String Problem) ) -> List (Line a)
-deadEndToString cfg lines ( head, tail ) =
+deadEndToString :
+    Output out
+    -> Extract inner problem
+    -> List ( Int, String )
+    -> ( DeadEnd inner problem, List (DeadEnd inner problem) )
+    -> List (Line out)
+deadEndToString output extract lines ( head, tail ) =
     let
         grouped :
             List
                 ( List { row : Int, col : Int, context : String }
-                , List Problem
+                , List problem
                 )
         grouped =
             (head :: tail)
-                |> List.Extra.gatherEqualsBy .contextStack
+                |> List.Extra.gatherEqualsBy extract.contextStack
                 |> List.map
                     (\( ihead, itail ) ->
-                        ( ihead.contextStack
+                        ( extract.contextStack ihead
                         , List.map .problem (ihead :: itail)
                         )
                     )
 
-        sourceFragment : List (Line a)
+        sourceFragment : List (Line out)
         sourceFragment =
-            formatSourceFragment cfg head lines
+            formatSourceFragment output { row = head.row, col = head.col } lines
 
         groupToString :
             ( List { row : Int, col : Int, context : String }
-            , List Problem
+            , List problem
             )
-            -> List (Line a)
+            -> List (Line out)
         groupToString ( contextStack, problems ) =
             let
-                expected : List String
-                expected =
-                    List.filterMap toExpected problems
+                ( expected, other ) =
+                    List.foldl
+                        (\problem ( eacc, oacc ) ->
+                            case extract.problemToString problem of
+                                Expected e ->
+                                    ( e :: eacc, oacc )
 
-                other : List String
-                other =
-                    problems
-                        |> List.filterMap
-                            (\problem ->
-                                case toExpected problem of
-                                    Just _ ->
-                                        Nothing
-
-                                    Nothing ->
-                                        Just (problemToString problem)
-                            )
+                                Other o ->
+                                    ( eacc, o :: oacc )
+                        )
+                        ( [], [] )
+                        problems
 
                 groupedExpected : List String
                 groupedExpected =
@@ -150,69 +205,27 @@ deadEndToString cfg lines ( head, tail ) =
                                 ++ String.join ", " expected
                             ]
 
-                problemsLines : List (Line a)
+                problemsLines : List (Line out)
                 problemsLines =
                     (groupedExpected ++ other)
                         |> List.sort
-                        |> List.map (\l -> Line [ cfg.text ("  " ++ l) ])
+                        |> List.map (\l -> Line [ output.text ("  " ++ l) ])
             in
-            Line
-                [ cfg.text "- "
-                , cfg.colorContext (cfg.text (contextStackToString contextStack))
-                , cfg.text ":"
-                ]
-                :: problemsLines
+            if List.isEmpty contextStack then
+                problemsLines
+
+            else
+                Line
+                    [ output.text "- "
+                    , output.colorContext (output.text (contextStackToString contextStack))
+                    , output.text ":"
+                    ]
+                    :: problemsLines
     in
-    sourceFragment ++ Line [ cfg.text "" ] :: List.concatMap groupToString grouped
+    sourceFragment ++ Line [ output.text "" ] :: List.concatMap groupToString grouped
 
 
-toExpected : Problem -> Maybe String
-toExpected problem =
-    case problem of
-        Expecting x ->
-            Just x
-
-        ExpectingVariable ->
-            Just "a variable"
-
-        ExpectingEnd ->
-            Just "the end"
-
-        ExpectingInt ->
-            Just "an integer"
-
-        ExpectingHex ->
-            Just "an hexadecimal number"
-
-        ExpectingOctal ->
-            Just "an octal number"
-
-        ExpectingBinary ->
-            Just "a binary number"
-
-        ExpectingFloat ->
-            Just "a floating point number"
-
-        ExpectingNumber ->
-            Just "a number"
-
-        ExpectingSymbol s ->
-            Just (Json.Encode.encode 0 (Json.Encode.string s))
-
-        ExpectingKeyword k ->
-            Just (Json.Encode.encode 0 (Json.Encode.string k))
-
-        UnexpectedChar ->
-            Nothing
-
-        Problem _ ->
-            Nothing
-
-        BadRepeat ->
-            Nothing
-
-
-formatSourceFragment : Config a -> DeadEnd String Problem -> List ( Int, String ) -> List (Line a)
+formatSourceFragment : Output a -> { row : Int, col : Int } -> List ( Int, String ) -> List (Line a)
 formatSourceFragment cfg head lines =
     let
         line : ( Int, String )
@@ -283,47 +296,47 @@ contextStackToString frames =
         |> String.join " > "
 
 
-problemToString : Problem -> String
-problemToString problem =
+problemToExpected : Problem -> Expected
+problemToExpected problem =
     case problem of
         Expecting x ->
-            "Expecting " ++ x
+            Expected x
 
         ExpectingVariable ->
-            "Expecting a variable"
+            Expected "a variable"
 
         ExpectingEnd ->
-            "Expecting the end"
+            Expected "the end"
 
         ExpectingInt ->
-            "Expecting an integer"
+            Expected "an integer"
 
         ExpectingHex ->
-            "Expecting an hexadecimal number"
+            Expected "an hexadecimal number"
 
         ExpectingOctal ->
-            "Expecting an octal number"
+            Expected "an octal number"
 
         ExpectingBinary ->
-            "Expecting a binary number"
+            Expected "a binary number"
 
         ExpectingFloat ->
-            "Expecting a floating point number"
+            Expected "a floating point number"
 
         ExpectingNumber ->
-            "Expecting a number"
+            Expected "a number"
 
         ExpectingSymbol s ->
-            "Expecting " ++ Json.Encode.encode 0 (Json.Encode.string s)
+            Expected (Json.Encode.encode 0 (Json.Encode.string s))
 
         ExpectingKeyword k ->
-            "Expecting " ++ Json.Encode.encode 0 (Json.Encode.string k)
+            Expected (Json.Encode.encode 0 (Json.Encode.string k))
 
         UnexpectedChar ->
-            "Unexpected char"
+            Other "Unexpected char"
 
         Problem p ->
-            p
+            Other p
 
         BadRepeat ->
-            "Bad repetition"
+            Other "Bad repetition"

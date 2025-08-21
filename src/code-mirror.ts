@@ -86,16 +86,15 @@ class CodeMirror extends HTMLElement {
         });
     }
 
-    // override focus(_options?: FocusOptions): void {
-    //     console.debug("focus");
-    //     this.view?.focus();
-    // }
+    override focus(_options?: FocusOptions): void {
+        console.debug("focus");
+        this.view?.focus();
+    }
 
     connectedCallback() {
         console.debug("connectedCallback");
         const shadow = this.attachShadow({
             mode: "open",
-            // delegatesFocus: true,
         });
         const state = EditorState.create({
             doc: this.getAttribute("doc-source") ?? "",
@@ -105,7 +104,6 @@ class CodeMirror extends HTMLElement {
             state,
             parent: shadow,
         });
-        // this.setAttribute("tabindex", "0");
     }
 
     disconnectedCallback() {

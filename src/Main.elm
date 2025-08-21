@@ -116,7 +116,7 @@ view model =
                         Err e ->
                             [ Block.Paragraph
                                 (Block.Text "Invalid parse "
-                                    :: Parser.Advanced.Extra.errorToMarkdown source e
+                                    :: Parser.Advanced.Extra.errorToMarkdown Parser.Advanced.Extra.parserAdvanced source e
                                 )
                             ]
               in
@@ -169,9 +169,9 @@ update msg model =
 
         VimMode mode ->
             ( { model | vimMode = mode }
-              -- , Browser.Dom.focus ids.editor
-              -- |> Task.attempt (\_ -> Noop)
-            , Cmd.none
+            , Browser.Dom.focus ids.editor
+                |> Task.attempt (\_ -> Noop)
+              -- , Cmd.none
             )
 
         Noop ->
