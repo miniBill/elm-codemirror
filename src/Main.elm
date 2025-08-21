@@ -2,9 +2,9 @@ module Main exposing (main)
 
 import Array exposing (Array)
 import Browser
-import Html exposing (Html, div, node)
+import Html exposing (Attribute, Html, button, div, node, text)
 import Html.Attributes exposing (id, style)
-import Html.Events
+import Html.Events exposing (onClick)
 import Json.Decode
 import Json.Encode
 import Markdown.Block as Block exposing (Block)
@@ -18,11 +18,13 @@ import String.Extra
 type alias Model =
     { doc : String
     , changes : Array Json.Encode.Value
+    , vimMode : Bool
     }
 
 
 type Msg
     = Changes Json.Encode.Value String
+    | VimMode Bool
 
 
 main : Program () Model Msg
@@ -38,53 +40,80 @@ init : Model
 init =
     { doc = ""
     , changes = Array.empty
+    , vimMode = False
     }
+
+
+row : List (Attribute msg) -> List (Html msg) -> Html msg
+row attrs children =
+    div
+        (style "display" "flex"
+            :: style "gap" "8px"
+            :: attrs
+        )
+        children
+
+
+column : List (Attribute msg) -> List (Html msg) -> Html msg
+column attrs children =
+    row (style "flex-direction" "column" :: attrs) children
 
 
 view : Model -> Html Msg
 view model =
-    div
-        [ style "display" "flex"
-        , style "align-items" "fill"
+    column
+        [ style "align-items" "fill"
         , style "padding" "8px"
-        , style "gap" "8px"
         ]
-        [ node "code-mirror"
-            [ Html.Attributes.property "changes" (Json.Encode.array identity model.changes)
-            , Html.Events.on "doc-changed"
-                (Json.Decode.at [ "detail" ]
-                    (Json.Decode.map2 Changes
-                        (Json.Decode.field "changes" Json.Decode.value)
-                        (Json.Decode.field "doc" Json.Decode.string)
-                    )
-                )
-            , style "flex" "1"
+        [ row []
+            [ button [ onClick (VimMode True) ] [ node "tt" [] [ text "vim" ], text " mode" ]
+            , button [ onClick (VimMode False) ] [ text "Heretical mode" ]
             ]
-            []
-        , let
-            source : String
-            source =
-                toMarkdown model.doc
-
-            blocks : List Block
-            blocks =
-                case Markdown.Parser.parse source of
-                    Ok parsed ->
-                        parsed
-
-                    Err e ->
-                        [ Block.Paragraph
-                            (Block.Text "Invalid parse "
-                                :: Parser.Advanced.Extra.errorToMarkdown source e
-                            )
-                        ]
-          in
-          Markdown.Renderer.render Markdown.Renderer.defaultHtmlRenderer blocks
-            |> Result.withDefault []
-            |> div
-                [ id "markdown"
+        , row [ style "align-items" "fill" ]
+            [ node "code-mirror"
+                [ Html.Attributes.property "changes" (Json.Encode.array identity model.changes)
+                , Html.Attributes.property "vimMode" (Json.Encode.bool model.vimMode)
+                , Html.Events.on "doc-changed"
+                    (Json.Decode.at [ "detail" ]
+                        (Json.Decode.map2 Changes
+                            (Json.Decode.field "changes" Json.Decode.value)
+                            (Json.Decode.field "doc" Json.Decode.string)
+                        )
+                    )
                 , style "flex" "1"
                 ]
+                []
+            , let
+                source : String
+                source =
+                    toMarkdown model.doc
+
+                blocks : List Block
+                blocks =
+                    case Markdown.Parser.parse source of
+                        Ok parsed ->
+                            parsed
+
+                        Err e ->
+                            [ Block.Paragraph
+                                (Block.Text "Invalid parse "
+                                    :: Parser.Advanced.Extra.errorToMarkdown source e
+                                )
+                            ]
+              in
+              case Markdown.Renderer.render Markdown.Renderer.defaultHtmlRenderer blocks of
+                Ok children ->
+                    div
+                        [ id "markdown"
+                        , style "flex" "1"
+                        ]
+                        children
+
+                Err e ->
+                    div [ id "markdown", style "flex" "1" ]
+                        [ text ("Error in rendering : " ++ e)
+                        ]
+            ]
         ]
 
 
@@ -116,3 +145,6 @@ update msg model =
                 | changes = Array.push changes model.changes
                 , doc = doc
             }
+
+        VimMode mode ->
+            { model | vimMode = mode }

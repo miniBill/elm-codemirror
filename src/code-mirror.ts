@@ -1,18 +1,30 @@
 import { markdown } from "@codemirror/lang-markdown";
-import { ChangeSet, EditorState } from "@codemirror/state";
+import { ChangeSet, Compartment, EditorState } from "@codemirror/state";
 import { ViewUpdate } from "@codemirror/view";
 import { EditorView } from "@codemirror/view";
 import { oneDark } from "@codemirror/theme-one-dark";
 import { basicSetup } from "codemirror";
+import { vim } from "@replit/codemirror-vim";
 
 class CodeMirror extends HTMLElement {
     view: EditorView | null = null;
     #changes: ChangeSet[] = [];
     #appliedChanges: ChangeSet[] = [];
+    #vimMode: boolean = false;
+    vim: Compartment = new Compartment();
 
     // constructor() {
     //     super();
     // }
+
+    get vimMode(): boolean {
+        return this.#vimMode;
+    }
+
+    set vimMode(value: boolean) {
+        this.#vimMode = value;
+        this.update();
+    }
 
     get changes(): ChangeSet[] {
         return this.#changes;
@@ -43,10 +55,14 @@ class CodeMirror extends HTMLElement {
             }
         });
 
-        return [plugin, basicSetup, markdown(), oneDark];
+        return [plugin, this.vim.of([]), basicSetup, markdown(), oneDark];
     }
 
     update() {
+        this.view?.dispatch({
+            effects: this.vim.reconfigure(this.vimMode ? vim() : []),
+        });
+
         let changes: ChangeSet[] = [];
         for (
             let index = this.#appliedChanges.length;
