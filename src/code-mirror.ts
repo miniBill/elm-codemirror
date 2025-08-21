@@ -22,6 +22,10 @@ class CodeMirror extends HTMLElement {
     }
 
     set vimMode(value: boolean) {
+        if (value === this.#vimMode) {
+            return;
+        }
+
         this.#vimMode = value;
         this.update();
     }
@@ -31,6 +35,13 @@ class CodeMirror extends HTMLElement {
     }
 
     set changes(value: ChangeSet[]) {
+        if (
+            value.length === this.#changes.length &&
+            value.every((v, index) => v === this.#changes[index])
+        ) {
+            return;
+        }
+
         this.#changes = value;
         this.update();
     }
@@ -59,6 +70,7 @@ class CodeMirror extends HTMLElement {
     }
 
     update() {
+        console.debug("update");
         let changes: ChangeSet[] = [];
         for (
             let index = this.#appliedChanges.length;
@@ -75,11 +87,16 @@ class CodeMirror extends HTMLElement {
     }
 
     override focus(_options?: FocusOptions): void {
+        console.debug("focus");
         this.view?.focus();
     }
 
     connectedCallback() {
-        const shadow = this.attachShadow({ mode: "open" });
+        console.debug("connectedCallback");
+        const shadow = this.attachShadow({
+            mode: "open",
+            // delegatesFocus: true,
+        });
         const state = EditorState.create({
             doc: this.getAttribute("doc-source") ?? "",
             extensions: this.extensions(),
