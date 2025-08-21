@@ -13,7 +13,8 @@
     },
     "scripts": {
         "elm:watch": "elm-watch hot",
-        "bun:build": "bun build src/code-mirror.ts --splitting --sourcemap=linked --outdir=build"
+        "bun:build": "bun build src/code-mirror.ts --splitting --sourcemap=linked --outdir=build",
+        "bun:build:watch": "bun build src/code-mirror.ts --splitting --sourcemap=linked --outdir=build --watch"
     },
     "type": "module",
     "dependencies": {
