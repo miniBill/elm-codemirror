@@ -5,9 +5,10 @@ import Html exposing (Html, div, node)
 import Html.Attributes exposing (id, style)
 import Html.Events
 import Json.Decode
-import Markdown.Block exposing (Block)
+import Markdown.Block as Block exposing (Block)
 import Markdown.Parser
 import Markdown.Renderer
+import Parser.Advanced.Extra
 import Regex exposing (Regex)
 import String.Extra
 
@@ -50,16 +51,21 @@ view doc =
             ]
             []
         , let
+            source : String
+            source =
+                toMarkdown doc
+
             blocks : List Block
             blocks =
-                case Markdown.Parser.parse (toMarkdown doc) of
+                case Markdown.Parser.parse source of
                     Ok parsed ->
                         parsed
 
                     Err e ->
-                        [ Markdown.Block.Paragraph
-                            [ Markdown.Block.Text ("Invalid parse " ++ Debug.toString e)
-                            ]
+                        [ Block.Paragraph
+                            (Block.Text "Invalid parse "
+                                :: Parser.Advanced.Extra.errorToMarkdown source e
+                            )
                         ]
           in
           Markdown.Renderer.render Markdown.Renderer.defaultHtmlRenderer blocks

@@ -9,11 +9,16 @@
         "@rollup/plugin-terser": "^0.4.4",
         "@rollup/plugin-typescript": "^12.1.4",
         "codemirror": "^6.0.2",
+        "elm": "^0.19.1-6",
         "elm-review": "^2.13.4",
         "elm-watch": "^2.0.0-beta.6",
         "rollup": "^4.46.2",
         "tslib": "^2.8.1",
         "typescript": "^5.9.2"
+    },
+    "scripts": {
+        "elm:watch": "elm-watch hot",
+        "rollup:watch": "rollup -c rollup.config.js -w"
     },
     "type": "module"
 }
