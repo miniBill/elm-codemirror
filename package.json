@@ -13,7 +13,7 @@
     },
     "scripts": {
         "elm:watch": "elm-watch hot",
-        "rollup:watch": "rollup -c rollup.config.js -w"
+        "bun:build": "bun build src/code-mirror.ts --splitting --sourcemap=linked --outdir=build"
     },
     "type": "module",
     "dependencies": {
