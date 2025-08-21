@@ -64,7 +64,7 @@ errorToMarkdown src deadEnds =
                 )
     in
     renderError
-        { text = Block.Text
+        { text = Block.CodeSpan
         , colorContext = color "cyan"
         , colorCaret = color "red"
         , newline = Block.HardLineBreak
