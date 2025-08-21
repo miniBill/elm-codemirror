@@ -59,10 +59,6 @@ class CodeMirror extends HTMLElement {
     }
 
     update() {
-        this.view?.dispatch({
-            effects: this.vim.reconfigure(this.vimMode ? vim() : []),
-        });
-
         let changes: ChangeSet[] = [];
         for (
             let index = this.#appliedChanges.length;
@@ -71,8 +67,10 @@ class CodeMirror extends HTMLElement {
         ) {
             changes.push(this.changes[index]!);
         }
+
         this.view?.dispatch({
             changes: changes,
+            effects: this.vim.reconfigure(this.vimMode ? vim() : []),
         });
     }
 
