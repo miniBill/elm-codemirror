@@ -1,30 +1,43 @@
 import { markdown } from "@codemirror/lang-markdown";
-import { EditorState } from "@codemirror/state";
+import { ChangeSet, EditorState } from "@codemirror/state";
 import { ViewUpdate } from "@codemirror/view";
 import { EditorView } from "@codemirror/view";
 import { oneDark } from "@codemirror/theme-one-dark";
 import { basicSetup } from "codemirror";
 
 class CodeMirror extends HTMLElement {
-    view: EditorView | null;
+    view: EditorView | null = null;
+    #changes: ChangeSet[] = [];
+    #appliedChanges: ChangeSet[] = [];
 
-    constructor() {
-        super();
-        this.view = null;
+    // constructor() {
+    //     super();
+    // }
+
+    get changes(): ChangeSet[] {
+        return this.#changes;
+    }
+
+    set changes(value: ChangeSet[]) {
+        this.#changes = value;
+        this.update();
     }
 
     extensions() {
         const mirror = this;
         let plugin = EditorView.updateListener.of((update: ViewUpdate) => {
             if (update.docChanged) {
+                this.changes.push(update.changes);
+                this.#appliedChanges.push(update.changes);
                 let doc = update.state.doc.toString();
-
-                mirror.setAttribute("doc-source", doc);
 
                 let event = new CustomEvent("doc-changed", {
                     bubbles: true,
                     cancelable: true,
-                    detail: doc,
+                    detail: {
+                        changes: update.changes,
+                        doc: doc,
+                    },
                 });
                 mirror.dispatchEvent(event);
             }
@@ -33,32 +46,18 @@ class CodeMirror extends HTMLElement {
         return [plugin, basicSetup, markdown(), oneDark];
     }
 
-    static get observedAttributes() {
-        return ["doc-source"];
-    }
-
-    attributeChangedCallback(name: string, oldValue: string, newValue: string) {
-        if (!this.isConnected || oldValue === newValue) {
-            return;
+    update() {
+        let changes: ChangeSet[] = [];
+        for (
+            let index = this.#appliedChanges.length;
+            index < this.changes.length;
+            index++
+        ) {
+            changes.push(this.changes[index]!);
         }
-        switch (name) {
-            case "doc-source":
-                this.setState(newValue ?? "");
-                break;
-        }
-    }
-
-    setState(doc: string) {
-        if (!this.view || doc == this.view.state.doc.toString()) {
-            return;
-        }
-
-        let editorState = EditorState.create({
-            doc: doc,
-            extensions: this.extensions(),
-            selection: this.view.state.selection,
+        this.view?.dispatch({
+            changes: changes,
         });
-        this.view.setState(editorState);
     }
 
     connectedCallback() {

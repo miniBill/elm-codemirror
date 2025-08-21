@@ -1,10 +1,12 @@
 module Main exposing (main)
 
+import Array exposing (Array)
 import Browser
 import Html exposing (Html, div, node)
 import Html.Attributes exposing (id, style)
 import Html.Events
 import Json.Decode
+import Json.Encode
 import Markdown.Block as Block exposing (Block)
 import Markdown.Parser
 import Markdown.Renderer
@@ -14,11 +16,13 @@ import String.Extra
 
 
 type alias Model =
-    String
+    { doc : String
+    , changes : Array Json.Encode.Value
+    }
 
 
-type alias Msg =
-    String
+type Msg
+    = Changes Json.Encode.Value String
 
 
 main : Program () Model Msg
@@ -32,11 +36,13 @@ main =
 
 init : Model
 init =
-    ""
+    { doc = ""
+    , changes = Array.empty
+    }
 
 
 view : Model -> Html Msg
-view doc =
+view model =
     div
         [ style "display" "flex"
         , style "align-items" "fill"
@@ -44,16 +50,21 @@ view doc =
         , style "gap" "8px"
         ]
         [ node "code-mirror"
-            [ Html.Attributes.attribute "doc-source" doc
+            [ Html.Attributes.property "changes" (Json.Encode.array identity model.changes)
             , Html.Events.on "doc-changed"
-                (Json.Decode.at [ "detail" ] Json.Decode.string)
+                (Json.Decode.at [ "detail" ]
+                    (Json.Decode.map2 Changes
+                        (Json.Decode.field "changes" Json.Decode.value)
+                        (Json.Decode.field "doc" Json.Decode.string)
+                    )
+                )
             , style "flex" "1"
             ]
             []
         , let
             source : String
             source =
-                toMarkdown doc
+                toMarkdown model.doc
 
             blocks : List Block
             blocks =
@@ -98,5 +109,10 @@ toMarkdown input =
 
 
 update : Msg -> Model -> Model
-update msg _ =
-    msg
+update msg model =
+    case msg of
+        Changes changes doc ->
+            { model
+                | changes = Array.push changes model.changes
+                , doc = doc
+            }
