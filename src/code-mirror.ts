@@ -76,6 +76,10 @@ class CodeMirror extends HTMLElement {
         });
     }
 
+    override focus(_options?: FocusOptions): void {
+        this.view?.focus();
+    }
+
     connectedCallback() {
         const shadow = this.attachShadow({ mode: "open" });
         const state = EditorState.create({

@@ -1,7 +1,8 @@
-module Main exposing (main)
+module Main exposing (Flags, Model, Msg, main)
 
 import Array exposing (Array)
 import Browser
+import Browser.Dom
 import Html exposing (Attribute, Html, button, div, node, text)
 import Html.Attributes exposing (id, style)
 import Html.Events exposing (onClick)
@@ -13,6 +14,7 @@ import Markdown.Renderer
 import Parser.Advanced.Extra
 import Regex exposing (Regex)
 import String.Extra
+import Task
 
 
 type alias Model =
@@ -25,23 +27,34 @@ type alias Model =
 type Msg
     = Changes Json.Encode.Value String
     | VimMode Bool
+    | Noop
 
 
-main : Program () Model Msg
+type alias Flags =
+    {}
+
+
+main : Program Flags Model Msg
 main =
-    Browser.sandbox
+    Browser.element
         { init = init
         , view = view
         , update = update
+        , subscriptions = subscriptions
         }
 
 
-init : Model
-init =
-    { doc = ""
-    , changes = Array.empty
-    , vimMode = False
-    }
+init : flags -> ( Model, Cmd msg )
+init _ =
+    let
+        model : Model
+        model =
+            { doc = ""
+            , changes = Array.empty
+            , vimMode = False
+            }
+    in
+    ( model, Cmd.none )
 
 
 row : List (Attribute msg) -> List (Html msg) -> Html msg
@@ -59,6 +72,11 @@ column attrs children =
     row (style "flex-direction" "column" :: attrs) children
 
 
+ids : { editor : String }
+ids =
+    { editor = "editor" }
+
+
 view : Model -> Html Msg
 view model =
     column
@@ -71,7 +89,8 @@ view model =
             ]
         , row [ style "align-items" "fill" ]
             [ node "code-mirror"
-                [ Html.Attributes.property "changes" (Json.Encode.array identity model.changes)
+                [ id ids.editor
+                , Html.Attributes.property "changes" (Json.Encode.array identity model.changes)
                 , Html.Attributes.property "vimMode" (Json.Encode.bool model.vimMode)
                 , Html.Events.on "doc-changed"
                     (Json.Decode.at [ "detail" ]
@@ -137,14 +156,28 @@ toMarkdown input =
             )
 
 
-update : Msg -> Model -> Model
+update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         Changes changes doc ->
-            { model
+            ( { model
                 | changes = Array.push changes model.changes
                 , doc = doc
-            }
+              }
+            , Cmd.none
+            )
 
         VimMode mode ->
-            { model | vimMode = mode }
+            ( { model | vimMode = mode }
+              -- , Browser.Dom.focus ids.editor
+              -- |> Task.attempt (\_ -> Noop)
+            , Cmd.none
+            )
+
+        Noop ->
+            ( model, Cmd.none )
+
+
+subscriptions : Model -> Sub msg
+subscriptions _ =
+    Sub.none
