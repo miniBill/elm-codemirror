@@ -86,10 +86,10 @@ class CodeMirror extends HTMLElement {
         });
     }
 
-    override focus(_options?: FocusOptions): void {
-        console.debug("focus");
-        this.view?.focus();
-    }
+    // override focus(_options?: FocusOptions): void {
+    //     console.debug("focus");
+    //     this.view?.focus();
+    // }
 
     connectedCallback() {
         console.debug("connectedCallback");
@@ -105,6 +105,7 @@ class CodeMirror extends HTMLElement {
             state,
             parent: shadow,
         });
+        // this.setAttribute("tabindex", "0");
     }
 
     disconnectedCallback() {
